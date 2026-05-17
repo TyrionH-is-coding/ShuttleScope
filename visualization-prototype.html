@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShuttleScope · Visualization Prototype</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22252f;
+      --surface3: #2a2d37;
+      --border: #303440;
+      --text: #e1e4ed;
+      --text2: #8b90a0;
+      --muted: #5f6678;
+      --accent: #7c9ff5;
+      --accent2: #22d3ee;
+      --win: #4ade80;
+      --lose: #f87171;
+      --warn: #facc15;
+      --radius: 12px;
+      --gap: 12px;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 30% -10%, rgba(124, 159, 245, .14), transparent 28%),
+        linear-gradient(180deg, #11141b 0%, var(--bg) 42%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1420px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 20px 0 34px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 0 20px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 260px;
+    }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(124,159,245,.22), rgba(74,222,128,.12));
+      border: 1px solid rgba(124,159,245,.28);
+      box-shadow: 0 0 28px rgba(124,159,245,.12) inset;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 24px; letter-spacing: 0; }
+    .subtle { color: var(--text2); font-size: 12px; }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip, .btn {
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 11px;
+      font-size: 12px;
+      cursor: default;
+    }
+
+    .btn {
+      cursor: pointer;
+      transition: border-color .2s, transform .2s, background .2s;
+    }
+
+    .btn:hover {
+      border-color: rgba(124, 159, 245, .7);
+      transform: translateY(-1px);
+    }
+
+    .btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .search-panel {
+      display: grid;
+      grid-template-columns: 1.15fr 1.15fr .7fr auto;
+      gap: 10px;
+      align-items: end;
+      background: rgba(26, 29, 39, .86);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      position: sticky;
+      top: 10px;
+      z-index: 30;
+      backdrop-filter: blur(12px);
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      outline: none;
+      color: var(--text);
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    input:focus, select:focus { border-color: var(--accent); }
+
+    .grid {
+      display: grid;
+      gap: var(--gap);
+    }
+
+    .layout {
+      grid-template-columns: minmax(0, 1.2fr) minmax(340px, .8fr);
+      margin-top: 12px;
+    }
+
+    .kpis {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 12px;
+    }
+
+    .panel {
+      background: rgba(26, 29, 39, .92);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(255,255,255,.035), transparent 22%, transparent 78%, rgba(255,255,255,.02));
+      opacity: .35;
+    }
+
+    .panel > * { position: relative; }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .metric {
+      min-height: 126px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: rise .5s ease both;
+    }
+
+    .metric:nth-child(2) { animation-delay: .04s; }
+    .metric:nth-child(3) { animation-delay: .08s; }
+    .metric:nth-child(4) { animation-delay: .12s; }
+
+    .metric .num {
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #eef2fb;
+    }
+
+    .metric .lbl {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .microline {
+      height: 22px;
+      width: 100%;
+      display: flex;
+      gap: 3px;
+      align-items: end;
+      margin-top: 12px;
+    }
+
+    .microline span {
+      flex: 1;
+      min-width: 3px;
+      height: var(--h);
+      background: linear-gradient(180deg, rgba(124,159,245,.86), rgba(124,159,245,.22));
+      border-radius: 3px 3px 0 0;
+      transform-origin: bottom;
+      animation: growY .7s ease both;
+      animation-delay: calc(var(--i) * 28ms);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: var(--gap);
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(48, 1fr);
+      gap: 4px;
+      min-height: 178px;
+      align-content: start;
+    }
+
+    .dot {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      background: var(--surface3);
+      opacity: .42;
+      transform: scale(.35);
+      animation: dotIn .45s ease forwards;
+      animation-delay: calc(var(--i) * 6ms);
+      cursor: crosshair;
+      transition: opacity .16s, transform .16s, box-shadow .16s;
+    }
+
+    .dot.ms { background: rgba(124,159,245,.88); }
+    .dot.ws { background: rgba(74,222,128,.82); }
+    .dot.md { background: rgba(34,211,238,.76); }
+    .dot.other { background: rgba(250,204,21,.62); }
+    .dot:hover, .dot:focus-visible {
+      opacity: 1;
+      transform: scale(1.65);
+      box-shadow: 0 0 0 2px rgba(225,228,237,.32), 0 0 18px rgba(124,159,245,.34);
+      z-index: 2;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--text2);
+      font-size: 11px;
+      margin-top: 10px;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      margin-right: 5px;
+      vertical-align: -1px;
+    }
+
+    .event-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .event-row {
+      display: grid;
+      grid-template-columns: 66px 1fr 54px;
+      gap: 9px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text2);
+      border-radius: 8px;
+      padding: 2px 4px;
+      transition: background .16s, color .16s;
+    }
+
+    .event-row:hover, .event-row:focus-visible {
+      background: rgba(124,159,245,.08);
+      color: var(--text);
+    }
+
+    .track {
+      height: 9px;
+      background: var(--surface3);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width .7s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .rank-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rank-row {
+      display: grid;
+      grid-template-columns: 28px minmax(110px, 1fr) minmax(150px, 1.25fr) 58px;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 9px;
+      background: rgba(34, 37, 47, .82);
+      border: 1px solid rgba(255,255,255,.035);
+      animation: rise .35s ease both;
+      transition: transform .16s, border-color .16s, background .16s;
+    }
+
+    .rank-row:hover, .rank-row:focus-visible {
+      transform: translateX(3px);
+      border-color: rgba(124,159,245,.42);
+      background: rgba(43, 48, 62, .92);
+    }
+
+    .rank-num {
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 800;
+    }
+
+    .rank-name {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rank-value {
+      font-size: 12px;
+      text-align: right;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .tabs .btn { padding: 6px 9px; }
+
+    .profile-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .player-name {
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 800;
+    }
+
+    .country {
+      color: var(--text2);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .score-chip {
+      border: 1px solid rgba(124,159,245,.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(124,159,245,.08);
+      min-width: 112px;
+      text-align: center;
+    }
+
+    .score-chip b {
+      display: block;
+      font-size: 24px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fingerprint-wrap {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+
+    #fingerprint {
+      width: 210px;
+      height: 210px;
+      display: block;
+    }
+
+    .fp-hit {
+      cursor: crosshair;
+      transition: r .16s, fill .16s, stroke .16s;
+    }
+
+    .fp-hit:hover, .fp-hit:focus-visible {
+      fill: rgba(124,159,245,.34);
+      stroke: rgba(225,228,237,.72);
+      stroke-width: 2;
+    }
+
+    .mini-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .mini {
+      background: var(--surface2);
+      border-radius: 9px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.035);
+      transition: transform .16s, border-color .16s, background .16s;
+    }
+
+    .mini:hover, .mini:focus-visible {
+      transform: translateY(-2px);
+      border-color: rgba(124,159,245,.36);
+      background: rgba(42,45,55,.9);
+    }
+
+    .mini b {
+      display: block;
+      font-size: 20px;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 3px;
+    }
+
+    .mini span {
+      color: var(--text2);
+      font-size: 11px;
+    }
+
+    .h2h-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .duel-row {
+      display: grid;
+      grid-template-columns: 92px 1fr 92px;
+      gap: 9px;
+      align-items: center;
+      font-size: 12px;
+      border-radius: 8px;
+      padding: 3px 6px;
+      transition: background .16s;
+    }
+
+    .duel-row:hover, .duel-row:focus-visible {
+      background: rgba(124,159,245,.08);
+    }
+
+    .duel-track {
+      height: 18px;
+      border-radius: 5px;
+      background:
+        linear-gradient(90deg, rgba(124,159,245,.88) var(--a), rgba(248,113,113,.84) var(--a));
+      box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .duel-track::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: var(--a);
+      width: 2px;
+      background: rgba(255,255,255,.72);
+    }
+
+    .canvas-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+
+    canvas {
+      width: 100%;
+      height: 250px;
+      display: block;
+      background: #11141b;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.04);
+      cursor: crosshair;
+      transition: border-color .16s, box-shadow .16s;
+    }
+
+    canvas:hover {
+      border-color: rgba(124,159,245,.42);
+      box-shadow: 0 0 0 1px rgba(124,159,245,.12);
+    }
+
+    .viz-tooltip {
+      position: fixed;
+      z-index: 1000;
+      max-width: min(320px, calc(100vw - 24px));
+      padding: 10px 12px;
+      border-radius: 9px;
+      border: 1px solid rgba(124,159,245,.34);
+      background: rgba(15, 17, 23, .94);
+      color: var(--text);
+      box-shadow: 0 16px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.03) inset;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-line;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate3d(0, 6px, 0);
+      transition: opacity .12s, transform .12s;
+      backdrop-filter: blur(12px);
+    }
+
+    .viz-tooltip.show {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .match-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--text2);
+      font-size: 12px;
+    }
+
+    .match-title {
+      color: var(--text);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .skeleton {
+      height: 11px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--surface2), var(--surface3), var(--surface2));
+      background-size: 180% 100%;
+      animation: shimmer 1.2s linear infinite;
+    }
+
+    .status {
+      color: var(--text2);
+      font-size: 12px;
+      min-height: 18px;
+      margin-top: 8px;
+    }
+
+    @keyframes rise {
+      from { opacity: .86; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes dotIn {
+      to { opacity: .95; transform: scale(1); }
+    }
+
+    @keyframes growY {
+      from { transform: scaleY(.05); opacity: .2; }
+      to { transform: scaleY(1); opacity: 1; }
+    }
+
+    @keyframes shimmer {
+      to { background-position: -180% 0; }
+    }
+
+    @media (max-width: 1050px) {
+      .layout, .split, .canvas-grid { grid-template-columns: 1fr; }
+      .search-panel { grid-template-columns: 1fr 1fr; }
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 680px) {
+      .topbar, .profile-top { align-items: stretch; flex-direction: column; }
+      .nav { justify-content: flex-start; }
+      .chip { max-width: 100%; padding: 7px 9px; font-size: 11px; }
+      .search-panel, .kpis, .fingerprint-wrap { grid-template-columns: 1fr; }
+      .matrix { grid-template-columns: repeat(24, 1fr); }
+      .rank-row { grid-template-columns: 24px minmax(100px, 1fr) 90px 48px; }
+      #fingerprint { margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">🏸</div>
+        <div>
+          <h1>ShuttleScope</h1>
+          <p class="subtle">Badminton Match Analytics · 数据可视化增强原型</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <span class="chip">保留原站深色工具风</span>
+        <span class="chip">Canvas + SVG</span>
+        <span class="chip">真实线上数据</span>
+      </nav>
+    </header>
+
+    <section class="search-panel">
+      <div>
+        <label for="playerA">球员 A</label>
+        <input id="playerA" list="playerList" placeholder="输入英文名，例如 Yamaguchi" />
+      </div>
+      <div>
+        <label for="playerB">球员 B / 对手</label>
+        <input id="playerB" list="playerList" placeholder="可留空，自动选择主要对手" />
+      </div>
+      <div>
+        <label for="yearFilter">年份</label>
+        <select id="yearFilter"><option value="">全部</option></select>
+      </div>
+      <button class="btn active" id="runBtn">刷新视图</button>
+      <datalist id="playerList"></datalist>
+    </section>
+    <div class="status" id="status">正在载入 ShuttleScope 数据...</div>
+
+    <section class="grid kpis" id="kpis">
+      <div class="panel metric"><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div class="panel metric"><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div class="panel metric"><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div class="panel metric"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+
+    <section class="grid layout">
+      <div class="grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">赛事覆盖点阵 <span class="subtle">每个点代表一批比赛</span></h2>
+            <span class="subtle" id="coverageLabel">-</span>
+          </div>
+          <div class="split">
+            <div>
+              <div class="matrix" id="matrix"></div>
+              <div class="legend">
+                <span><i style="background:rgba(124,159,245,.88)"></i>男单/单打</span>
+                <span><i style="background:rgba(74,222,128,.82)"></i>女单</span>
+                <span><i style="background:rgba(34,211,238,.76)"></i>男双/双打</span>
+                <span><i style="background:rgba(250,204,21,.62)"></i>其他</span>
+              </div>
+            </div>
+            <div class="event-bars" id="eventBars"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">战术排名重排 <span class="subtle">切换维度时条形和名次重排</span></h2>
+            <div class="tabs" id="rankTabs">
+              <button class="btn active" data-rank="winRate">胜率</button>
+              <button class="btn" data-rank="clutch">关键分</button>
+              <button class="btn" data-rank="stamina">体力战</button>
+              <button class="btn" data-rank="sample">样本</button>
+            </div>
+          </div>
+          <div class="rank-list" id="rankList"></div>
+        </section>
+      </div>
+
+      <aside class="grid">
+        <section class="panel">
+          <div class="profile-top">
+            <div>
+              <div class="player-name" id="profileName">-</div>
+              <div class="country" id="profileCountry">-</div>
+            </div>
+            <div class="score-chip">
+              <b id="profileScore">-</b>
+              <span class="subtle">综合指数</span>
+            </div>
+          </div>
+          <div class="fingerprint-wrap">
+            <svg id="fingerprint" viewBox="0 0 210 210" aria-label="球员战术指纹">
+              <defs>
+                <radialGradient id="fpGlow" cx="50%" cy="50%">
+                  <stop offset="0%" stop-color="#7c9ff5" stop-opacity=".42"/>
+                  <stop offset="100%" stop-color="#7c9ff5" stop-opacity=".04"/>
+                </radialGradient>
+              </defs>
+              <circle cx="105" cy="105" r="82" fill="url(#fpGlow)" />
+              <g id="fpGrid"></g>
+              <polygon id="fpPoly" points="" fill="rgba(124,159,245,.28)" stroke="#7c9ff5" stroke-width="2" />
+              <g id="fpLabels"></g>
+            </svg>
+            <div class="mini-stats" id="profileStats"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">H2H 拉力对比</h2>
+            <span class="subtle" id="h2hLabel">-</span>
+          </div>
+          <div class="h2h-grid" id="h2hGrid"></div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="panel" style="margin-top:12px">
+      <div class="panel-head">
+        <h2 class="panel-title">比赛回放式节奏图 <span class="subtle">领先差值 + Δt 耗时散点</span></h2>
+        <span class="subtle" id="matchTag">-</span>
+      </div>
+      <div class="match-meta">
+        <div class="match-title" id="matchTitle">-</div>
+        <div id="matchScore">-</div>
+      </div>
+      <div class="canvas-grid">
+        <canvas id="momentumCanvas"></canvas>
+        <canvas id="tempoCanvas"></canvas>
+      </div>
+    </section>
+  </main>
+  <div class="viz-tooltip" id="vizTooltip" role="status" aria-live="polite"></div>
+
+  <script>
+    const DATA_URL = "https://shuttlescope.org/data/";
+    let MATCHES = [];
+    let PLAYERS = [];
+    let PLAYER_MAP = {};
+    let currentRankMetric = "winRate";
+
+    const $ = (id) => document.getElementById(id);
+    const pct = (a, b) => b ? a / b : 0;
+    const fmtPct = (v) => `${Math.round((v || 0) * 100)}%`;
+    const clamp = (v, min = 0, max = 1) => Math.max(min, Math.min(max, v));
+    let activeCanvasTooltip = null;
+
+    function shortName(name) {
+      return (name || "").replace(/,\s*/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    function attr(text) {
+      return String(text ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function tooltip() {
+      return $("vizTooltip");
+    }
+
+    function showTooltip(text, event) {
+      if (!text) return;
+      const tip = tooltip();
+      tip.textContent = text;
+      tip.classList.add("show");
+      moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+      const tip = tooltip();
+      if (!tip.classList.contains("show")) return;
+      const margin = 14;
+      const offset = 16;
+      const rect = tip.getBoundingClientRect();
+      let x = event.clientX + offset;
+      let y = event.clientY + offset;
+      if (x + rect.width + margin > window.innerWidth) x = event.clientX - rect.width - offset;
+      if (y + rect.height + margin > window.innerHeight) y = event.clientY - rect.height - offset;
+      tip.style.left = `${Math.max(margin, x)}px`;
+      tip.style.top = `${Math.max(margin, y)}px`;
+    }
+
+    function hideTooltip() {
+      tooltip().classList.remove("show");
+      activeCanvasTooltip = null;
+    }
+
+    function formatMatchTooltip(m, index) {
+      const score = (m.sc || []).map(s => `${s[0]}-${s[1]}`).join("  ") || "无比分";
+      const winner = m.w === "h" ? m.hp : m.ap;
+      return `样本点 #${index + 1}
+日期：${m.date || "-"}
+赛事：${m.tn || "-"}
+轮次：${m.r || "-"}
+对阵：${shortName(m.hp)} vs ${shortName(m.ap)}
+比分：${score}
+胜方：${shortName(winner)}`;
+    }
+
+    document.addEventListener("mousemove", (event) => {
+      if (activeCanvasTooltip) return;
+      const target = event.target.closest?.("[data-tooltip]");
+      if (target) showTooltip(target.dataset.tooltip, event);
+      else hideTooltip();
+    });
+
+    document.addEventListener("mouseover", (event) => {
+      const target = event.target.closest?.("[data-tooltip]");
+      if (target) showTooltip(target.dataset.tooltip, event);
+    });
+
+    document.addEventListener("mouseout", (event) => {
+      if (event.target.closest?.("[data-tooltip]")) hideTooltip();
+    });
+
+    document.addEventListener("focusin", (event) => {
+      const target = event.target.closest?.("[data-tooltip]");
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      showTooltip(target.dataset.tooltip, { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+    });
+
+    document.addEventListener("focusout", hideTooltip);
+
+    function eventType(tn) {
+      const t = (tn || "").toLowerCase();
+      if (/\bms\b|men singles|,\s*singles/.test(t)) return "ms";
+      if (/\bws\b|women singles/.test(t)) return "ws";
+      if (/\bmd\b|men doubles|,\s*doubles/.test(t)) return "md";
+      return "other";
+    }
+
+    function eventLabel(key) {
+      return { ms: "男单/单打", ws: "女单", md: "男双/双打", other: "其他" }[key] || key;
+    }
+
+    function isWin(m, pid) {
+      return (m.hid === pid && m.w === "h") || (m.aid === pid && m.w === "a");
+    }
+
+    function playerName(pid) {
+      return PLAYER_MAP[pid]?.name || pid;
+    }
+
+    function findPlayer(query) {
+      const q = (query || "").trim().toLowerCase();
+      if (!q) return null;
+      return PLAYERS.find(p => p.name.toLowerCase() === q)
+        || PLAYERS.find(p => p.name.toLowerCase().includes(q))
+        || null;
+    }
+
+    function setStatus(text) {
+      $("status").textContent = text;
+    }
+
+    async function init() {
+      try {
+        const [matchRes, playerRes] = await Promise.all([
+          fetch(`${DATA_URL}matches.json?v=${Date.now()}`),
+          fetch(`${DATA_URL}players.json?v=${Date.now()}`)
+        ]);
+        MATCHES = await matchRes.json();
+        PLAYERS = await playerRes.json();
+        PLAYER_MAP = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
+        hydrateControls();
+        renderOverview();
+        $("playerA").value = "Yamaguchi, Akane";
+        updateAll();
+        setStatus(`已载入 ${MATCHES.length.toLocaleString()} 场比赛、${PLAYERS.length.toLocaleString()} 名球员。`);
+      } catch (err) {
+        console.error(err);
+        setStatus("数据加载失败。请确认本地预览服务器可以访问 shuttlescope.org。");
+      }
+    }
+
+    function hydrateControls() {
+      const list = $("playerList");
+      list.innerHTML = PLAYERS
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(p => `<option value="${p.name}"></option>`)
+        .join("");
+
+      const years = [...new Set(MATCHES.map(m => (m.date || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+      $("yearFilter").innerHTML = `<option value="">全部</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
+    }
+
+    function filteredMatches() {
+      const y = $("yearFilter").value;
+      return y ? MATCHES.filter(m => (m.date || "").startsWith(y)) : MATCHES;
+    }
+
+    function renderOverview() {
+      const matches = filteredMatches();
+      const players = new Set();
+      const countries = new Set();
+      const yearCounts = {};
+      for (const m of matches) {
+        players.add(m.hid);
+        players.add(m.aid);
+        const y = (m.date || "").slice(0, 4);
+        if (y) yearCounts[y] = (yearCounts[y] || 0) + 1;
+      }
+      for (const pid of players) {
+        const c = PLAYER_MAP[pid]?.country;
+        if (c) countries.add(c);
+      }
+      const dates = matches.map(m => m.date).filter(Boolean).sort();
+      const years = Object.keys(yearCounts).sort();
+      const kpis = [
+        ["比赛场次", matches.length, "matches", Object.values(yearCounts)],
+        ["球员样本", players.size, "players", Object.values(yearCounts).slice().reverse()],
+        ["覆盖赛季", years.length, years.length ? `${years[0]}-${years.at(-1)}` : "-", Object.values(yearCounts)],
+        ["国家/地区", countries.size, "countries", Object.values(yearCounts).slice(0, 12)]
+      ];
+      $("kpis").innerHTML = kpis.map(([label, value, sub, spark], idx) => `
+        <article class="panel metric">
+          <div>
+            <div class="num" data-count="${typeof value === "number" ? value : ""}">${typeof value === "number" ? "0" : value}</div>
+            <div class="lbl">${label}</div>
+          </div>
+          <div class="subtle">${idx === 2 ? sub : `${sub} · 最新 ${dates.at(-1) || "-"}`}</div>
+          <div class="microline">${sparkline(spark)}</div>
+        </article>
+      `).join("");
+      animateCounts();
+      renderCoverage(matches);
+      renderEventBars(matches);
+      $("coverageLabel").textContent = years.length ? `${years[0]} 至 ${years.at(-1)}` : "-";
+    }
+
+    function sparkline(values) {
+      const arr = values.length ? values : [1];
+      const max = Math.max(...arr, 1);
+      return arr.slice(-18).map((v, i) => `<span style="--h:${Math.max(12, v / max * 100)}%;--i:${i}"></span>`).join("");
+    }
+
+    function animateCounts() {
+      document.querySelectorAll("[data-count]").forEach(el => {
+        const target = Number(el.dataset.count);
+        if (!target) return;
+        const start = performance.now();
+        const duration = 780;
+        const step = (now) => {
+          const t = clamp((now - start) / duration);
+          const eased = 1 - Math.pow(1 - t, 3);
+          el.textContent = Math.round(target * eased).toLocaleString();
+          if (t < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }
+
+    function renderCoverage(matches) {
+      const bucket = 288;
+      const step = Math.max(1, Math.floor(matches.length / bucket));
+      const sample = [];
+      for (let i = 0; i < matches.length && sample.length < bucket; i += step) sample.push(matches[i]);
+      $("matrix").innerHTML = sample.map((m, i) => `
+        <span class="dot ${eventType(m.tn)}" style="--i:${i}" tabindex="0" data-tooltip="${attr(formatMatchTooltip(m, i))}"></span>
+      `).join("");
+    }
+
+    function renderEventBars(matches) {
+      const counts = { ms: 0, ws: 0, md: 0, other: 0 };
+      matches.forEach(m => counts[eventType(m.tn)]++);
+      const max = Math.max(...Object.values(counts), 1);
+      const total = matches.length || 1;
+      $("eventBars").innerHTML = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([key, val]) => `
+          <div class="event-row" tabindex="0" data-tooltip="${attr(`${eventLabel(key)}
+比赛：${val.toLocaleString()} 场
+占比：${(val / total * 100).toFixed(1)}%
+相对最大类别：${(val / max * 100).toFixed(1)}%`)}">
+            <span>${eventLabel(key)}</span>
+            <div class="track"><div class="fill" style="width:${(val / max * 100).toFixed(1)}%"></div></div>
+            <b>${val.toLocaleString()}</b>
+          </div>
+        `).join("");
+    }
+
+    function computePlayerStats(matches, pid) {
+      const s = {
+        matches: 0, wins: 0, sets: 0, setWins: 0, third: 0, thirdWins: 0,
+        clutchPts: 0, clutchWon: 0, staminaPts: 0, staminaWon: 0,
+        avgDtSum: 0, avgDtN: 0, recent: []
+      };
+
+      for (const m of matches) {
+        const isH = m.hid === pid;
+        const isA = m.aid === pid;
+        if (!isH && !isA) continue;
+        s.matches++;
+        if (isWin(m, pid)) s.wins++;
+        s.recent.push(m);
+        (m.sc || []).forEach((set, idx) => {
+          s.sets++;
+          const won = isH ? set[0] > set[1] : set[1] > set[0];
+          if (won) s.setWins++;
+          if (idx === 2) {
+            s.third++;
+            if (won) s.thirdWins++;
+          }
+        });
+
+        if (!m.pts) continue;
+        for (let si = 0; si < m.pts.length; si++) {
+          const pts = m.pts[si] || [];
+          const dts = (m.dt && m.dt[si]) || [];
+          for (let i = 0; i < Math.min(dts.length, pts.length - 1); i++) {
+            const cur = pts[i], next = pts[i + 1];
+            const homeScored = next[0] > cur[0];
+            const playerScored = isH ? homeScored : !homeScored;
+            const late = Math.max(cur[0], cur[1]) >= 20;
+            if (late) {
+              s.clutchPts++;
+              if (playerScored) s.clutchWon++;
+            }
+            if (dts[i] > 25) {
+              s.staminaPts++;
+              if (playerScored) s.staminaWon++;
+            }
+            s.avgDtSum += Math.min(dts[i], 120);
+            s.avgDtN++;
+          }
+        }
+      }
+      return s;
+    }
+
+    function profileMetrics(s) {
+      const wr = pct(s.wins, s.matches);
+      const set = pct(s.setWins, s.sets);
+      const clutch = pct(s.clutchWon, s.clutchPts);
+      const stamina = pct(s.staminaWon, s.staminaPts);
+      const third = pct(s.thirdWins, s.third);
+      return [
+        ["胜率", wr],
+        ["局胜", set],
+        ["关键", clutch],
+        ["体力", stamina],
+        ["三局", third]
+      ];
+    }
+
+    function renderProfile(player, matches) {
+      const s = computePlayerStats(matches, player.id);
+      const metrics = profileMetrics(s);
+      const composite = Math.round(metrics.reduce((sum, x) => sum + x[1], 0) / metrics.length * 100);
+      $("profileName").textContent = shortName(player.name);
+      $("profileCountry").textContent = `${player.country || "-"} · ${s.matches} 场样本`;
+      $("profileScore").textContent = composite || "-";
+      $("profileStats").innerHTML = [
+        ["比赛胜率", fmtPct(pct(s.wins, s.matches)), `${s.wins}/${s.matches}`],
+        ["局胜率", fmtPct(pct(s.setWins, s.sets)), `${s.setWins}/${s.sets}`],
+        ["关键分", fmtPct(pct(s.clutchWon, s.clutchPts)), `${s.clutchWon}/${s.clutchPts}`],
+        ["体力战", fmtPct(pct(s.staminaWon, s.staminaPts)), `${s.staminaWon}/${s.staminaPts}`]
+      ].map(([label, val, sub]) => `
+        <div class="mini" tabindex="0" data-tooltip="${attr(`${shortName(player.name)}
+${label}
+数值：${val}
+样本：${sub}`)}"><b>${val}</b><span>${label} · ${sub}</span></div>
+      `).join("");
+      drawFingerprint(metrics);
+    }
+
+    function polar(cx, cy, r, idx, n) {
+      const a = -Math.PI / 2 + idx * Math.PI * 2 / n;
+      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+    }
+
+    function drawFingerprint(metrics) {
+      const grid = $("fpGrid");
+      const labels = $("fpLabels");
+      const n = metrics.length;
+      grid.innerHTML = "";
+      labels.innerHTML = "";
+      for (const r of [28, 50, 72]) {
+        const pts = metrics.map((_, i) => polar(105, 105, r, i, n).join(",")).join(" ");
+        grid.insertAdjacentHTML("beforeend", `<polygon points="${pts}" fill="none" stroke="rgba(139,144,160,.28)" />`);
+      }
+      metrics.forEach(([label], i) => {
+        const [x, y] = polar(105, 105, 87, i, n);
+        const [x2, y2] = polar(105, 105, 76, i, n);
+        grid.insertAdjacentHTML("beforeend", `<line x1="105" y1="105" x2="${x2}" y2="${y2}" stroke="rgba(139,144,160,.22)" />`);
+        labels.insertAdjacentHTML("beforeend", `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="#8b90a0" font-size="10">${label}</text>`);
+      });
+      const pts = metrics.map(([, v], i) => polar(105, 105, 16 + clamp(v) * 62, i, n).join(",")).join(" ");
+      $("fpPoly").setAttribute("points", pts);
+      metrics.forEach(([label, value], i) => {
+        const [x, y] = polar(105, 105, 16 + clamp(value) * 62, i, n);
+        labels.insertAdjacentHTML("beforeend", `
+          <circle class="fp-hit" cx="${x}" cy="${y}" r="7" fill="rgba(124,159,245,.18)" stroke="rgba(124,159,245,.34)" tabindex="0" data-tooltip="${attr(`战术指纹
+维度：${label}
+数值：${fmtPct(value)}
+说明：离中心越远，该维度表现越强`)}"></circle>
+        `);
+      });
+    }
+
+    function buildRanking(matches, metric) {
+      const byPlayer = new Map();
+      for (const m of matches) {
+        for (const pid of [m.hid, m.aid]) {
+          if (!byPlayer.has(pid)) byPlayer.set(pid, []);
+          byPlayer.get(pid).push(m);
+        }
+      }
+      const rows = [];
+      byPlayer.forEach((pm, pid) => {
+        if (pm.length < 30) return;
+        const s = computePlayerStats(pm, pid);
+        const values = {
+          winRate: pct(s.wins, s.matches),
+          clutch: pct(s.clutchWon, s.clutchPts),
+          stamina: pct(s.staminaWon, s.staminaPts),
+          sample: Math.min(s.matches / 180, 1)
+        };
+        rows.push({ pid, name: playerName(pid), matches: s.matches, value: values[metric] || 0, raw: s });
+      });
+      return rows.sort((a, b) => b.value - a.value).slice(0, 10);
+    }
+
+    function renderRanking() {
+      const rows = buildRanking(filteredMatches(), currentRankMetric);
+      const max = Math.max(...rows.map(r => r.value), 1);
+      const labelMap = { winRate: "胜率", clutch: "关键分", stamina: "体力战", sample: "样本量" };
+      $("rankList").innerHTML = rows.map((r, idx) => `
+        <div class="rank-row" tabindex="0" style="animation-delay:${idx * 28}ms" data-tooltip="${attr(`#${idx + 1} ${shortName(r.name)}
+当前维度：${labelMap[currentRankMetric] || currentRankMetric}
+显示值：${currentRankMetric === "sample" ? `${r.raw.matches} 场` : fmtPct(r.value)}
+比赛：${r.raw.wins}/${r.raw.matches}
+关键分：${r.raw.clutchWon}/${r.raw.clutchPts}
+体力战：${r.raw.staminaWon}/${r.raw.staminaPts}`)}">
+          <div class="rank-num">#${idx + 1}</div>
+          <div class="rank-name" title="${r.name}">${shortName(r.name)}</div>
+          <div class="track"><div class="fill" style="width:${(r.value / max * 100).toFixed(1)}%"></div></div>
+          <div class="rank-value">${currentRankMetric === "sample" ? r.raw.matches : fmtPct(r.value)}</div>
+        </div>
+      `).join("") || `<p class="subtle">样本不足。</p>`;
+      $("rankTabs").querySelectorAll(".btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.rank === currentRankMetric);
+        btn.title = labelMap[btn.dataset.rank] || "";
+      });
+    }
+
+    function topOpponent(matches, player, typedOpponent) {
+      const typed = findPlayer(typedOpponent);
+      if (typed) return typed;
+      const map = new Map();
+      for (const m of matches) {
+        if (m.hid === player.id) map.set(m.aid, (map.get(m.aid) || 0) + 1);
+        if (m.aid === player.id) map.set(m.hid, (map.get(m.hid) || 0) + 1);
+      }
+      const [pid] = [...map.entries()].sort((a, b) => b[1] - a[1])[0] || [];
+      return pid ? PLAYER_MAP[pid] : null;
+    }
+
+    function renderH2H(playerA, playerB, matches) {
+      if (!playerB) {
+        $("h2hLabel").textContent = "无对手";
+        $("h2hGrid").innerHTML = `<p class="subtle">输入球员 B 或选择有交手记录的球员。</p>`;
+        return;
+      }
+      const h2h = matches.filter(m =>
+        (m.hid === playerA.id && m.aid === playerB.id) ||
+        (m.hid === playerB.id && m.aid === playerA.id)
+      );
+      const a = computePlayerStats(h2h, playerA.id);
+      const b = computePlayerStats(h2h, playerB.id);
+      $("h2hLabel").textContent = `${h2h.length} 场交手`;
+      const rows = [
+        ["胜场", a.wins, b.wins, ""],
+        ["局胜率", pct(a.setWins, a.sets), pct(b.setWins, b.sets), "pct"],
+        ["关键分", pct(a.clutchWon, a.clutchPts), pct(b.clutchWon, b.clutchPts), "pct"],
+        ["体力战", pct(a.staminaWon, a.staminaPts), pct(b.staminaWon, b.staminaPts), "pct"]
+      ];
+      $("h2hGrid").innerHTML = rows.map(([label, av, bv, type]) => {
+        const total = type === "pct" ? av + bv : Math.max(av + bv, 1);
+        const split = total ? av / total * 100 : 50;
+        return `
+          <div class="duel-row" tabindex="0" data-tooltip="${attr(`${shortName(playerA.name)} vs ${shortName(playerB.name)}
+指标：${label}
+${shortName(playerA.name)}：${type === "pct" ? fmtPct(av) : av}
+${shortName(playerB.name)}：${type === "pct" ? fmtPct(bv) : bv}
+条形分割：${split.toFixed(1)}% / ${(100 - split).toFixed(1)}%`)}">
+            <b style="color:var(--accent)">${type === "pct" ? fmtPct(av) : av}</b>
+            <div>
+              <div class="subtle" style="margin-bottom:4px;text-align:center">${label}</div>
+              <div class="duel-track" style="--a:${split.toFixed(1)}%"></div>
+            </div>
+            <b style="color:var(--lose);text-align:right">${type === "pct" ? fmtPct(bv) : bv}</b>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function latestPlayableMatch(matches, pid) {
+      return matches.find(m => (m.hid === pid || m.aid === pid) && m.pts && m.dt)
+        || matches.find(m => m.pts && m.dt)
+        || matches[0];
+    }
+
+    function renderMatchFocus(player, matches) {
+      const m = latestPlayableMatch(matches, player.id);
+      if (!m) return;
+      $("matchTag").textContent = `${m.date} · ${m.r || "round"}`;
+      $("matchTitle").textContent = `${shortName(m.hp)} vs ${shortName(m.ap)} · ${m.tn}`;
+      $("matchScore").textContent = (m.sc || []).map(s => `${s[0]}-${s[1]}`).join("  ");
+      drawMomentum($("momentumCanvas"), m, player.id);
+      drawTempo($("tempoCanvas"), m, player.id);
+    }
+
+    function setupCanvas(canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(320, Math.floor(rect.width * dpr));
+      canvas.height = Math.floor(250 * dpr);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, w: canvas.width / dpr, h: canvas.height / dpr };
+    }
+
+    function drawAxes(ctx, w, h, label) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#11141b";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "rgba(139,144,160,.16)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) {
+        const y = i * h / 5;
+        ctx.beginPath();
+        ctx.moveTo(36, y);
+        ctx.lineTo(w - 12, y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#8b90a0";
+      ctx.font = "11px sans-serif";
+      ctx.fillText(label, 14, 20);
+    }
+
+    function bindCanvasTooltip(canvas, hitPoints) {
+      canvas._hitPoints = hitPoints;
+      if (canvas._tooltipBound) return;
+      canvas._tooltipBound = true;
+      canvas.addEventListener("mousemove", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        let best = null;
+        let bestDistance = Infinity;
+        for (const point of canvas._hitPoints || []) {
+          const d = Math.hypot(point.x - x, point.y - y);
+          if (d < bestDistance) {
+            best = point;
+            bestDistance = d;
+          }
+        }
+        if (best && bestDistance < 18) {
+          activeCanvasTooltip = canvas;
+          showTooltip(best.tooltip, event);
+        } else {
+          hideTooltip();
+        }
+      });
+      canvas.addEventListener("mouseleave", hideTooltip);
+    }
+
+    function drawMomentum(canvas, m, pid) {
+      const { ctx, w, h } = setupCanvas(canvas);
+      drawAxes(ctx, w, h, "领先差值回放");
+      const isH = m.hid === pid;
+      const points = [];
+      (m.pts || []).forEach((set, si) => {
+        set.forEach((p, pi) => {
+          const d = isH ? p[0] - p[1] : p[1] - p[0];
+          points.push({ d, set: si, pi, score: `${p[0]}-${p[1]}` });
+        });
+        points.push(null);
+      });
+      const maxAbs = Math.max(6, ...points.filter(Boolean).map(p => Math.abs(p.d)));
+      const linearPoints = points.filter(Boolean);
+      bindCanvasTooltip(canvas, linearPoints.map((p, i) => {
+        const x = 40 + (w - 58) * (i / Math.max(1, linearPoints.length - 1));
+        const y = h / 2 - p.d / maxAbs * (h * .36);
+        return {
+          x, y,
+          tooltip: `领先差值回放
+局数：第 ${p.set + 1} 局
+得分序号：${p.pi + 1}
+当前比分：${p.score}
+${shortName(playerName(pid))} 视角差值：${p.d > 0 ? "+" : ""}${p.d}`
+        };
+      }));
+      let visible = 0;
+      const animate = () => {
+        drawAxes(ctx, w, h, "领先差值回放");
+        const mid = h / 2;
+        ctx.strokeStyle = "rgba(255,255,255,.28)";
+        ctx.beginPath();
+        ctx.moveTo(36, mid);
+        ctx.lineTo(w - 12, mid);
+        ctx.stroke();
+        let count = 0;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        let pen = false;
+        for (let i = 0; i < points.length && count < visible; i++) {
+          const p = points[i];
+          if (!p) { pen = false; continue; }
+          const x = 40 + (w - 58) * (count / Math.max(1, points.filter(Boolean).length - 1));
+          const y = mid - p.d / maxAbs * (h * .36);
+          if (!pen) { ctx.moveTo(x, y); pen = true; }
+          else ctx.lineTo(x, y);
+          count++;
+        }
+        ctx.strokeStyle = "#7c9ff5";
+        ctx.stroke();
+        visible += 4;
+        if (visible <= points.filter(Boolean).length + 4) requestAnimationFrame(animate);
+      };
+      animate();
+    }
+
+    function drawTempo(canvas, m, pid) {
+      const { ctx, w, h } = setupCanvas(canvas);
+      drawAxes(ctx, w, h, "Δt 耗时散点");
+      const isH = m.hid === pid;
+      const pts = [];
+      (m.dt || []).forEach((setDt, si) => {
+        const setPts = m.pts?.[si] || [];
+        setDt.forEach((dt, i) => {
+          if (!setPts[i + 1]) return;
+          const homeScored = setPts[i + 1][0] > setPts[i][0];
+          const self = isH ? homeScored : !homeScored;
+          pts.push({
+            dt: Math.min(dt, 120),
+            rawDt: dt,
+            self,
+            set: si,
+            pi: i,
+            from: `${setPts[i][0]}-${setPts[i][1]}`,
+            to: `${setPts[i + 1][0]}-${setPts[i + 1][1]}`
+          });
+        });
+      });
+      bindCanvasTooltip(canvas, pts.map((p, i) => {
+        const x = 40 + (w - 58) * (i / Math.max(1, pts.length - 1));
+        const y = h - 28 - (p.dt / 120) * (h - 58);
+        return {
+          x, y,
+          tooltip: `Δt 耗时散点
+局数：第 ${p.set + 1} 局
+得分序号：${p.pi + 1}
+比分变化：${p.from} → ${p.to}
+耗时：${p.rawDt}s
+得分方：${p.self ? shortName(playerName(pid)) : "对手"}`
+        };
+      }));
+      let visible = 0;
+      const animate = () => {
+        drawAxes(ctx, w, h, "Δt 耗时散点");
+        for (let i = 0; i < Math.min(visible, pts.length); i++) {
+          const p = pts[i];
+          const x = 40 + (w - 58) * (i / Math.max(1, pts.length - 1));
+          const y = h - 28 - (p.dt / 120) * (h - 58);
+          const r = p.dt > 45 ? 4.3 : 2.7;
+          ctx.fillStyle = p.self ? "rgba(124,159,245,.72)" : "rgba(248,113,113,.65)";
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+          if (p.dt > 60) {
+            ctx.strokeStyle = p.self ? "rgba(124,159,245,.28)" : "rgba(248,113,113,.24)";
+            ctx.beginPath();
+            ctx.arc(x, y, r + 5, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        visible += 6;
+        if (visible <= pts.length + 6) requestAnimationFrame(animate);
+      };
+      animate();
+    }
+
+    function updateAll() {
+      const matches = filteredMatches();
+      renderOverview();
+      renderRanking();
+      const player = findPlayer($("playerA").value) || PLAYERS.find(p => p.name === "Yamaguchi, Akane") || PLAYERS[0];
+      if (!player) return;
+      $("playerA").value = player.name;
+      const opponent = topOpponent(matches, player, $("playerB").value);
+      if (opponent && !$("playerB").value) $("playerB").value = opponent.name;
+      renderProfile(player, matches);
+      renderH2H(player, opponent, matches);
+      renderMatchFocus(player, matches);
+    }
+
+    $("runBtn").addEventListener("click", updateAll);
+    $("yearFilter").addEventListener("change", updateAll);
+    $("rankTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-rank]");
+      if (!btn) return;
+      currentRankMetric = btn.dataset.rank;
+      renderRanking();
+    });
+    window.addEventListener("resize", () => {
+      const player = findPlayer($("playerA").value) || PLAYERS[0];
+      if (player) renderMatchFocus(player, filteredMatches());
+    });
+
+    init();
+  </script>
+</body>
+</html>
